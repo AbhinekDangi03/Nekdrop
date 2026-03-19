@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEKDROP by Abhinek</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        body { background-color: #050505; color: #00f2ff; font-family: 'Courier New', Courier, monospace; overflow: hidden; }
+        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(12px); border: 1px solid rgba(0, 242, 255, 0.2); }
+        .pulse-blue { box-shadow: 0 0 20px rgba(0, 242, 255, 0.5); }
+        .pulse-red { box-shadow: 0 0 20px rgba(255, 0, 60, 0.5); }
+    </style>
+</head>
+<body class="h-screen flex items-center justify-center">
+
+    <div id="page1" class="text-center">
+        <h1 class="text-4xl font-bold mb-8 tracking-tighter">NekDrop by Abhinek v1.0</h1>
+        <button onclick="showQR()" class="px-8 py-4 border-2 border-[#00f2ff] hover:bg-[#00f2ff] hover:text-black transition-all duration-300 font-bold uppercase tracking-widest">
+            Initiate Connection
+        </button>
+    </div>
+
+    <div id="page2" class="hidden glass p-10 rounded-2xl text-center">
+        <p class="mb-4 text-xs uppercase tracking-widest opacity-70">Scan to link mobile node</p>
+        <div id="qrcode" class="bg-white p-4 rounded-lg inline-block shadow-2xl"></div>
+        <p class="mt-6 text-red-500 animate-pulse text-sm">WAITING FOR HANDSHAKE...</p>
+    </div>
+
+    <div id="page3" class="hidden w-full max-w-2xl px-6">
+        <div id="zone-box" class="glass p-12 rounded-3xl text-center transition-colors duration-700">
+            <h2 id="status-text" class="text-2xl font-bold mb-4 italic uppercase">System Offline</h2>
+            <div id="drop-area" class="border-2 border-dashed border-[#00f2ff]/30 p-10 rounded-xl hover:border-[#00f2ff] transition-all cursor-pointer">
+                <p>DRAG & DROP HERE</p>
+            </div>
+            <div class="mt-8 text-[10px] opacity-40 flex justify-between">
+                <span>GATEWAY: <span id="local-ip">0.0.0.0</span></span>
+                <span>TARGET: NEK_MOBILE_SVR</span>
+            </div>
+        </div>
+    </div>
+    <script>
+    // 1. Get Room from URL. If no Room, we are the HOST.
+    const urlParams = new URLSearchParams(window.location.search);
+    let roomId = urlParams.get('room');
+    let isGuest = !!roomId; // True if scanned via QR
+    
+    if (!roomId) {
+        roomId = Math.random().toString(36).substring(7); // Create new room for Host
+    }
+
+    let ws;
+
+    // 2. Host clicks this to show QR
+    function showQR() {
+        document.getElementById('page1').classList.add('hidden');
+        document.getElementById('page2').classList.remove('hidden');
+        
+        // This is the link the PHONE will open
+        const joinUrl = `${window.location.origin}/?room=${roomId}`;
+        
+        document.getElementById("qrcode").innerHTML = ""; 
+        new QRCode(document.getElementById("qrcode"), { text: joinUrl, width: 200, height: 200 });
+        
+        connectSocket(); // Host starts listening
+    }
+
+    // 3. The Shared Connection Logic
+    function connectSocket() {
+        const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        const wsUrl = `${protocol}://${window.location.host}/ws/${roomId}`;
+        
+        ws = new WebSocket(wsUrl);
+        
+        ws.onopen = () => {
+            // Switch to the Drop Zone
+            document.getElementById('page1').classList.add('hidden');
+            document.getElementById('page2').classList.add('hidden');
+            document.getElementById('page3').classList.remove('hidden');
+            document.getElementById('status-text').innerText = "LINK ESTABLISHED";
+        };
+
+        ws.onmessage = (event) => {
+            document.getElementById('status-text').innerText = "DATA RECEIVED";
+        };
+    }
+
+    // 4. Auto-Join for the Phone (Guest)
+    if (isGuest) {
+        // If we are the phone, skip page 1 and 2, go straight to connect
+        connectSocket();
+    }
+</script>
+</body>
+</html>
